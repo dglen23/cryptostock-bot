@@ -8,8 +8,18 @@ import yfinance as yf
 TOKEN     = "7052243619:AAFpSBnVOcO6R3gje4EjwuIYJnwugdJ3gI4"
 BASE_URL  = f"https://api.telegram.org/bot{TOKEN}"
 CRYPTO_IDS    = [
-    "bitcoin", "ethereum", "ripple", "hedera-hashgraph",
-    "stellar", "quant-network", "ondo", "xdc-network",
+    "bitcoin",
+    "ethereum",
+    "ripple",
+    "hedera-hashgraph",
+    "stellar",
+    "quant-network",
+    "ondo",
+    "xdc-network",
+    "pepe",         # Pepe
+    "shiba-inu",    # Shiba Inu
+    "solana",       # Solana
+    "dogecoin",     # Dogecoin
 ]
 STOCK_TICKERS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL"]
 
