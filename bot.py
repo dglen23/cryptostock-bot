@@ -5,9 +5,9 @@ import requests
 import yfinance as yf
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
-TOKEN     = "7052243619:AAFpSBnVOcO6R3gje4EjwuIYJnwugdJ3gI4"
-BASE_URL  = f"https://api.telegram.org/bot{TOKEN}"
-CRYPTO_IDS    = [
+TOKEN        = "7052243619:AAFpSBnVOcO6R3gje4EjwuIYJnwugdJ3gI4"
+BASE_URL     = f"https://api.telegram.org/bot{TOKEN}"
+CRYPTO_IDS   = [
     "bitcoin",
     "ethereum",
     "ripple",
@@ -16,22 +16,32 @@ CRYPTO_IDS    = [
     "quant-network",
     "ondo",
     "xdc-network",
-    "pepe",         # Pepe
-    "shiba-inu",    # Shiba Inu
-    "solana",       # Solana
-    "dogecoin",     # Dogecoin
+    "pepe",
+    "shiba-inu",
+    "solana",
+    "dogecoin",
 ]
 STOCK_TICKERS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL"]
 
 # ── FETCHERS ────────────────────────────────────────────────────────────────────
+def format_price(price: float) -> str:
+    if price >= 1:
+        return f"${price:,.2f}"
+    # for prices under $1, show up to 8 decimals, strip trailing zeros
+    s = f"{price:.8f}".rstrip("0").rstrip(".")
+    return f"${s}"
+
 def get_crypto_prices() -> str:
-    url = "https://api.coingecko.com/api/v3/simple/price"
+    url  = "https://api.coingecko.com/api/v3/simple/price"
     data = requests.get(url, params={"ids": ",".join(CRYPTO_IDS), "vs_currencies": "usd"}).json()
     lines = []
     for cid in CRYPTO_IDS:
         name  = cid.replace("-", " ").title()
         price = data.get(cid, {}).get("usd")
-        lines.append(f"{name}: ${price:,.2f}" if price is not None else f"{name}: N/A")
+        if price is None:
+            lines.append(f"{name}: N/A")
+        else:
+            lines.append(f"{name}: {format_price(price)}")
     return "📊 *Crypto Prices*\n" + "\n".join(lines)
 
 def get_stock_prices() -> str:
@@ -39,7 +49,10 @@ def get_stock_prices() -> str:
     for t in STOCK_TICKERS:
         info  = yf.Ticker(t).info
         price = info.get("regularMarketPrice")
-        lines.append(f"{t}: ${price:,.2f}" if price is not None else f"{t}: N/A")
+        if price is None:
+            lines.append(f"{t}: N/A")
+        else:
+            lines.append(f"{t}: ${price:,.2f}")
     return "📈 *Top Stock Prices*\n" + "\n".join(lines)
 
 # ── TELEGRAM API ────────────────────────────────────────────────────────────────
@@ -49,8 +62,8 @@ def get_updates(offset=None, timeout=30):
 
 def send_message(chat_id: int, text: str):
     requests.post(f"{BASE_URL}/sendMessage", data={
-        "chat_id": chat_id,
-        "text": text,
+        "chat_id":    chat_id,
+        "text":       text,
         "parse_mode": "Markdown"
     })
 
@@ -62,8 +75,8 @@ def main():
         updates = get_updates(offset)
         for upd in updates:
             offset = upd["update_id"] + 1
-            msg = upd.get("message", {})
-            text = msg.get("text", "").strip()
+            msg    = upd.get("message", {})
+            text   = msg.get("text", "").strip()
             chat_id = msg.get("chat", {}).get("id")
             if not chat_id or not text:
                 continue
@@ -72,7 +85,7 @@ def main():
                 send_message(chat_id,
                     "👋 *CryptoStock Bot*\n\n"
                     "Use `/crypto` to get crypto prices.\n"
-                    "Use `/stocks` to get stock prices.",
+                    "Use `/stocks` to get stock prices."
                 )
             elif text == "/crypto":
                 send_message(chat_id, get_crypto_prices())
