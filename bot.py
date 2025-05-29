@@ -1,12 +1,16 @@
 # bot.py
 
+import os
 import time
 import requests
 import yfinance as yf
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
-TOKEN        = "7052243619:AAFpSBnVOcO6R3gje4EjwuIYJnwugdJ3gI4"
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+if not TOKEN:
+    raise RuntimeError("Missing TELEGRAM_TOKEN environment variable")
 BASE_URL     = f"https://api.telegram.org/bot{TOKEN}"
+
 CRYPTO_IDS   = [
     "bitcoin",
     "ethereum",
@@ -27,7 +31,7 @@ STOCK_TICKERS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL"]
 def format_price(price: float) -> str:
     if price >= 1:
         return f"${price:,.2f}"
-    # for prices under $1, show up to 8 decimals, strip trailing zeros
+    # for prices under $1, show up to 8 decimals and strip trailing zeros
     s = f"{price:.8f}".rstrip("0").rstrip(".")
     return f"${s}"
 
@@ -38,10 +42,7 @@ def get_crypto_prices() -> str:
     for cid in CRYPTO_IDS:
         name  = cid.replace("-", " ").title()
         price = data.get(cid, {}).get("usd")
-        if price is None:
-            lines.append(f"{name}: N/A")
-        else:
-            lines.append(f"{name}: {format_price(price)}")
+        lines.append(f"{name}: {format_price(price)}" if price is not None else f"{name}: N/A")
     return "📊 *Crypto Prices*\n" + "\n".join(lines)
 
 def get_stock_prices() -> str:
@@ -49,10 +50,7 @@ def get_stock_prices() -> str:
     for t in STOCK_TICKERS:
         info  = yf.Ticker(t).info
         price = info.get("regularMarketPrice")
-        if price is None:
-            lines.append(f"{t}: N/A")
-        else:
-            lines.append(f"{t}: ${price:,.2f}")
+        lines.append(f"{t}: ${price:,.2f}" if price is not None else f"{t}: N/A")
     return "📈 *Top Stock Prices*\n" + "\n".join(lines)
 
 # ── TELEGRAM API ────────────────────────────────────────────────────────────────
@@ -74,9 +72,9 @@ def main():
     while True:
         updates = get_updates(offset)
         for upd in updates:
-            offset = upd["update_id"] + 1
-            msg    = upd.get("message", {})
-            text   = msg.get("text", "").strip()
+            offset  = upd["update_id"] + 1
+            msg     = upd.get("message", {})
+            text    = msg.get("text", "").strip()
             chat_id = msg.get("chat", {}).get("id")
             if not chat_id or not text:
                 continue
