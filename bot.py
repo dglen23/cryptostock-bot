@@ -23,9 +23,8 @@ if not TOKEN:
     raise RuntimeError("Missing TELEGRAM_TOKEN environment variable")
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 
-# API keys for NewsAPI.org and Twitter API v2 (set these in Railway or your env)
-NEWS_API_KEY         = os.getenv("NEWS_API_KEY")
-TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN")
+# NewsAPI.org key (set this in Railway or your environment)
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
 CRYPTO_IDS    = [
     "bitcoin", "ethereum", "ripple", "hedera-hashgraph",
@@ -96,7 +95,7 @@ def get_stock_prices() -> str:
         traceback.print_exc()
         return "⚠️ Error fetching all stock prices."
 
-# ── NEWS & TWEETS FUNCTIONS ─────────────────────────────────────────────────────
+# ── NEWS FUNCTIONS ──────────────────────────────────────────────────────────────
 def get_news(symbol: str) -> str:
     if not NEWS_API_KEY:
         return "⚠️ NEWS_API_KEY not set in environment."
@@ -118,36 +117,6 @@ def get_news(symbol: str) -> str:
     except Exception:
         traceback.print_exc()
         return f"⚠️ Error fetching news for {symbol.upper()}."
-
-def get_tweets(symbol: str) -> str:
-    if not TWITTER_BEARER_TOKEN:
-        return "⚠️ TWITTER_BEARER_TOKEN not set in environment."
-    try:
-        # Build a more flexible query: symbol OR #symbol OR $SYMBOL
-        query = f"{symbol} OR #{symbol} OR ${symbol.upper()}"
-        url = "https://api.twitter.com/2/tweets/search/recent"
-        headers = {"Authorization": f"Bearer {TWITTER_BEARER_TOKEN}"}
-        params = {
-            "query": query,
-            "max_results": 3,
-            "tweet.fields": "text,author_id,created_at"
-        }
-        resp = requests.get(url, headers=headers, params=params)
-        data = resp.json()
-        # For debugging, uncomment next line and watch Railway logs:
-        # print("Twitter response for", symbol, "→", data)
-        tweets = data.get("data", [])
-        if not tweets:
-            return f"🐦 No recent tweets found for *{symbol.upper()}*."
-        lines = []
-        for t in tweets:
-            txt = t.get("text", "").replace("\n", " ")
-            created = t.get("created_at", "")
-            lines.append(f"• {txt} _(at {created})_")
-        return f"🐦 *Tweets for {symbol.upper()}*\n" + "\n".join(lines)
-    except Exception:
-        traceback.print_exc()
-        return f"⚠️ Error fetching tweets for {symbol.upper()}."
 
 # ── CHART GENERATORS ────────────────────────────────────────────────────────────
 def plot_crypto_history(symbol: str, days: int) -> str:
@@ -245,8 +214,7 @@ def main():
                     "Use `/stocks` to get all stock prices.\n"
                     "Use `/chart <symbol> <period>` for a price chart:\n"
                     "   `/chart bitcoin 7d` or `/chart AAPL 1d`.\n"
-                    "Use `/news <symbol>` for latest headlines.\n"
-                    "Use `/tweet <symbol>` for recent tweets."
+                    "Use `/news <symbol>` for latest headlines."
                 )
 
             elif cmd == "/crypto":
@@ -305,13 +273,6 @@ def main():
                     continue
                 symbol = parts[1].lower()
                 send_message(chat_id, get_news(symbol))
-
-            elif cmd == "/tweet":
-                if len(parts) != 2:
-                    send_message(chat_id, "Usage: `/tweet <symbol>`\n(e.g. `/tweet bitcoin` or `/tweet AAPL`)")
-                    continue
-                symbol = parts[1].lower()
-                send_message(chat_id, get_tweets(symbol))
 
         time.sleep(1)  # avoid hammering Telegram
 
