@@ -23,6 +23,10 @@ if not TOKEN:
     raise RuntimeError("Missing TELEGRAM_TOKEN environment variable")
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 
+# Environment variables for NewsAPI and Twitter API (v2)
+NEWS_API_KEY        = os.getenv("NEWS_API_KEY")
+TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN")
+
 CRYPTO_IDS    = [
     "bitcoin", "ethereum", "ripple", "hedera-hashgraph",
     "stellar", "quant-network", "ondo", "xdc-network",
@@ -92,11 +96,58 @@ def get_stock_prices() -> str:
         traceback.print_exc()
         return "⚠️ Error fetching all stock prices."
 
+# ── NEWS & TWEETS FUNCTIONS ─────────────────────────────────────────────────────
+def get_news(symbol: str) -> str:
+    if not NEWS_API_KEY:
+        return "⚠️ NEWS_API_KEY not set in environment."
+    try:
+        url = "https://newsapi.org/v2/everything"
+        params = {
+            "q": symbol,
+            "apiKey": NEWS_API_KEY,
+            "pageSize": 3,
+            "sortBy": "publishedAt",
+            "language": "en"
+        }
+        resp = requests.get(url, params=params).json()
+        articles = resp.get("articles", [])
+        if not articles:
+            return f"📰 No recent news found for *{symbol.upper()}*."
+        lines = [f"• [{a['title']}]({a['url']})" for a in articles]
+        return f"📰 *News for {symbol.upper()}*\n" + "\n".join(lines)
+    except Exception:
+        traceback.print_exc()
+        return f"⚠️ Error fetching news for {symbol.upper()}."
+
+def get_tweets(symbol: str) -> str:
+    if not TWITTER_BEARER_TOKEN:
+        return "⚠️ TWITTER_BEARER_TOKEN not set in environment."
+    try:
+        url = "https://api.twitter.com/2/tweets/search/recent"
+        headers = {"Authorization": f"Bearer {TWITTER_BEARER_TOKEN}"}
+        params = {
+            "query": symbol,
+            "max_results": 3,
+            "tweet.fields": "text,author_id,created_at"
+        }
+        resp = requests.get(url, headers=headers, params=params).json()
+        tweets = resp.get("data", [])
+        if not tweets:
+            return f"🐦 No recent tweets found for *{symbol.upper()}*."
+        lines = []
+        for t in tweets:
+            txt = t.get("text", "").replace("\n", " ")
+            created = t.get("created_at", "")
+            lines.append(f"• {txt} _(at {created})_")
+        return f"🐦 *Tweets for {symbol.upper()}*\n" + "\n".join(lines)
+    except Exception:
+        traceback.print_exc()
+        return f"⚠️ Error fetching tweets for {symbol.upper()}."
+
 # ── CHART GENERATORS ────────────────────────────────────────────────────────────
 def plot_crypto_history(symbol: str, days: int) -> str:
     if plt is None:
         return None
-
     try:
         url = f"https://api.coingecko.com/api/v3/coins/{symbol}/market_chart"
         params = {"vs_currency": "usd", "days": days}
@@ -104,17 +155,14 @@ def plot_crypto_history(symbol: str, days: int) -> str:
         prices = resp.get("prices", [])
         if not prices:
             return None
-
         times = [datetime.fromtimestamp(p[0] / 1000) for p in prices]
         vals  = [p[1] for p in prices]
-
         plt.figure(figsize=(6, 3))
         plt.plot(times, vals, linewidth=1.5)
         plt.title(f"{symbol.replace('-', ' ').title()} price (last {days}d)")
         plt.xlabel("Date")
         plt.ylabel("Price (USD)")
         plt.tight_layout()
-
         tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
         plt.savefig(tmp_file.name)
         plt.close()
@@ -126,22 +174,18 @@ def plot_crypto_history(symbol: str, days: int) -> str:
 def plot_stock_history(ticker: str, period: str) -> str:
     if plt is None:
         return None
-
     try:
         hist = yf.Ticker(ticker.upper()).history(period=period, interval="1h")
         if hist.empty:
             return None
-
         times = hist.index.to_pydatetime()
         vals  = hist["Close"].tolist()
-
         plt.figure(figsize=(6, 3))
         plt.plot(times, vals, linewidth=1.5)
         plt.title(f"{ticker.upper()} price (last {period})")
         plt.xlabel("Date")
         plt.ylabel("Price (USD)")
         plt.tight_layout()
-
         tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
         plt.savefig(tmp_file.name)
         plt.close()
@@ -195,7 +239,9 @@ def main():
                     "Use `/crypto` to get all crypto prices.\n"
                     "Use `/stocks` to get all stock prices.\n"
                     "Use `/chart <symbol> <period>` for a price chart:\n"
-                    "`/chart bitcoin 7d` or `/chart AAPL 1d`."
+                    "`/chart bitcoin 7d` or `/chart AAPL 1d`.\n"
+                    "Use `/news <symbol>` for latest headlines.\n"
+                    "Use `/tweet <symbol>` for recent tweets."
                 )
 
             elif cmd == "/crypto":
@@ -219,10 +265,8 @@ def main():
                         "e.g. `/chart bitcoin 7d` or `/chart AAPL 1d`"
                     )
                     continue
-
                 symbol = parts[1].lower()
                 period = parts[2].lower()
-
                 if symbol in CRYPTO_IDS:
                     if period.endswith("d") and period[:-1].isdigit():
                         days = int(period[:-1])
@@ -232,8 +276,7 @@ def main():
                         else:
                             send_message(chat_id, f"⚠️ Could not fetch historical data for {symbol}.")
                     else:
-                        send_message(chat_id, "For crypto, period must be in days, e.g. `7d`, `30d`.")
-
+                        send_message(chat_id, "For crypto, period must be in days (e.g. `7d`, `30d`).")
                 elif symbol.upper() in STOCK_TICKERS:
                     yf_period = period
                     if period.endswith("d") and period[:-1].isdigit():
@@ -241,15 +284,27 @@ def main():
                     elif period not in ["1d", "5d", "1mo", "3mo", "6mo", "1y"]:
                         send_message(chat_id, "Invalid period for stock. Use `1d`, `5d`, `1mo`, etc.")
                         continue
-
                     path = plot_stock_history(symbol.upper(), yf_period)
                     if path:
                         send_photo(chat_id, path, caption=f"📈 {symbol.upper()} - Last {yf_period}")
                     else:
                         send_message(chat_id, f"⚠️ Could not fetch historical data for {symbol.upper()}.")
-
                 else:
                     send_message(chat_id, "⚠️ Symbol not recognized. Use a valid crypto ID or stock ticker.")
+
+            elif cmd == "/news":
+                if len(parts) != 2:
+                    send_message(chat_id, "Usage: `/news <symbol>`\n(e.g. `/news bitcoin` or `/news AAPL`)")
+                    continue
+                symbol = parts[1].lower()
+                send_message(chat_id, get_news(symbol))
+
+            elif cmd == "/tweet":
+                if len(parts) != 2:
+                    send_message(chat_id, "Usage: `/tweet <symbol>`\n(e.g. `/tweet bitcoin` or `/tweet AAPL`)")
+                    continue
+                symbol = parts[1].lower()
+                send_message(chat_id, get_tweets(symbol))
 
         time.sleep(1)  # avoid hammering Telegram
 
