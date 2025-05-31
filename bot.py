@@ -16,7 +16,6 @@ except ImportError:
     print("⚠️ matplotlib not installed; /chart commands will be disabled")
 
 from datetime import datetime
-from telegram import InputFile
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -215,7 +214,7 @@ def main():
 
             elif cmd == "/chart":
                 if len(parts) != 3:
-                    send_message(chat_id, 
+                    send_message(chat_id,
                         "Usage: `/chart <symbol> <period>`\n"
                         "e.g. `/chart bitcoin 7d` or `/chart AAPL 1d`"
                     )
@@ -224,7 +223,6 @@ def main():
                 symbol = parts[1].lower()
                 period = parts[2].lower()
 
-                # Crypto vs. Stock
                 if symbol in CRYPTO_IDS:
                     if period.endswith("d") and period[:-1].isdigit():
                         days = int(period[:-1])
@@ -237,7 +235,6 @@ def main():
                         send_message(chat_id, "For crypto, period must be in days, e.g. `7d`, `30d`.")
 
                 elif symbol.upper() in STOCK_TICKERS:
-                    # yfinance accepts '1d', '5d', '1mo', '3mo', '6mo', '1y'
                     yf_period = period
                     if period.endswith("d") and period[:-1].isdigit():
                         yf_period = period
