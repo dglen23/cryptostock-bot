@@ -4,9 +4,17 @@ import os
 import time
 import json
 import tempfile
+import traceback
 import requests
 import yfinance as yf
-import matplotlib.pyplot as plt
+
+# Only import matplotlib if available; otherwise disable charting
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+    print("⚠️ matplotlib not installed; /chart commands will be disabled")
+
 from datetime import datetime
 from telegram import InputFile
 
@@ -16,23 +24,14 @@ if not TOKEN:
     raise RuntimeError("Missing TELEGRAM_TOKEN environment variable")
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 
-CRYPTO_IDS   = [
-    "bitcoin",
-    "ethereum",
-    "ripple",
-    "hedera-hashgraph",
-    "stellar",
-    "quant-network",
-    "ondo",
-    "xdc-network",
-    "pepe",
-    "shiba-inu",
-    "solana",
-    "dogecoin",
+CRYPTO_IDS    = [
+    "bitcoin", "ethereum", "ripple", "hedera-hashgraph",
+    "stellar", "quant-network", "ondo", "xdc-network",
+    "pepe", "shiba-inu", "solana", "dogecoin",
 ]
 STOCK_TICKERS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL"]
 
-# ── FETCHERS ────────────────────────────────────────────────────────────────────
+# ── HELPER FUNCTIONS ─────────────────────────────────────────────────────────────
 def format_price(price: float) -> str:
     if price >= 1:
         return f"${price:,.2f}"
@@ -40,98 +39,117 @@ def format_price(price: float) -> str:
     return f"${s}"
 
 def get_crypto_price_single(symbol: str) -> str:
-    url  = "https://api.coingecko.com/api/v3/simple/price"
-    data = requests.get(url, params={"ids": symbol, "vs_currencies": "usd"}).json()
-    price = data.get(symbol, {}).get("usd")
-    if price is None:
-        return f"{symbol.title()}: N/A"
-    return f"{symbol.replace('-', ' ').title()}: {format_price(price)}"
+    try:
+        url  = "https://api.coingecko.com/api/v3/simple/price"
+        data = requests.get(url, params={"ids": symbol, "vs_currencies": "usd"}).json()
+        price = data.get(symbol, {}).get("usd")
+        if price is None:
+            return f"{symbol.title()}: N/A"
+        return f"{symbol.replace('-', ' ').title()}: {format_price(price)}"
+    except Exception:
+        traceback.print_exc()
+        return f"{symbol.title()}: Error fetching price"
 
 def get_stock_price_single(ticker: str) -> str:
-    info  = yf.Ticker(ticker.upper()).info
-    price = info.get("regularMarketPrice")
-    if price is None:
-        return f"{ticker.upper()}: N/A"
-    return f"{ticker.upper()}: ${price:,.2f}"
-
-def get_crypto_prices() -> str:
-    url  = "https://api.coingecko.com/api/v3/simple/price"
-    data = requests.get(url, params={"ids": ",".join(CRYPTO_IDS), "vs_currencies": "usd"}).json()
-    lines = []
-    for cid in CRYPTO_IDS:
-        name  = cid.replace("-", " ").title()
-        price = data.get(cid, {}).get("usd")
-        if price is None:
-            lines.append(f"{name}: N/A")
-        else:
-            lines.append(f"{name}: {format_price(price)}")
-    return "📊 *Crypto Prices*\n" + "\n".join(lines)
-
-def get_stock_prices() -> str:
-    lines = []
-    for t in STOCK_TICKERS:
-        info  = yf.Ticker(t).info
+    try:
+        info  = yf.Ticker(ticker.upper()).info
         price = info.get("regularMarketPrice")
         if price is None:
-            lines.append(f"{t}: N/A")
-        else:
-            lines.append(f"{t}: ${price:,.2f}")
-    return "📈 *Top Stock Prices*\n" + "\n".join(lines)
+            return f"{ticker.upper()}: N/A"
+        return f"{ticker.upper()}: ${price:,.2f}"
+    except Exception:
+        traceback.print_exc()
+        return f"{ticker.upper()}: Error fetching price"
+
+def get_crypto_prices() -> str:
+    try:
+        url  = "https://api.coingecko.com/api/v3/simple/price"
+        data = requests.get(url, params={"ids": ",".join(CRYPTO_IDS), "vs_currencies": "usd"}).json()
+        lines = []
+        for cid in CRYPTO_IDS:
+            name  = cid.replace("-", " ").title()
+            price = data.get(cid, {}).get("usd")
+            if price is None:
+                lines.append(f"{name}: N/A")
+            else:
+                lines.append(f"{name}: {format_price(price)}")
+        return "📊 *Crypto Prices*\n" + "\n".join(lines)
+    except Exception:
+        traceback.print_exc()
+        return "⚠️ Error fetching all crypto prices."
+
+def get_stock_prices() -> str:
+    try:
+        lines = []
+        for t in STOCK_TICKERS:
+            info  = yf.Ticker(t).info
+            price = info.get("regularMarketPrice")
+            if price is None:
+                lines.append(f"{t}: N/A")
+            else:
+                lines.append(f"{t}: ${price:,.2f}")
+        return "📈 *Top Stock Prices*\n" + "\n".join(lines)
+    except Exception:
+        traceback.print_exc()
+        return "⚠️ Error fetching all stock prices."
 
 # ── CHART GENERATORS ────────────────────────────────────────────────────────────
 def plot_crypto_history(symbol: str, days: int) -> str:
-    """
-    Fetch historical price data for a crypto from CoinGecko and plot.
-    Returns the file path to the saved PNG.
-    """
-    url = f"https://api.coingecko.com/api/v3/coins/{symbol}/market_chart"
-    params = {"vs_currency": "usd", "days": days}
-    resp = requests.get(url, params=params).json()
-    prices = resp.get("prices", [])
-    if not prices:
+    if plt is None:
         return None
 
-    # Convert to lists of datetime and price
-    times = [datetime.fromtimestamp(p[0] / 1000) for p in prices]
-    vals = [p[1] for p in prices]
+    try:
+        url = f"https://api.coingecko.com/api/v3/coins/{symbol}/market_chart"
+        params = {"vs_currency": "usd", "days": days}
+        resp = requests.get(url, params=params).json()
+        prices = resp.get("prices", [])
+        if not prices:
+            return None
 
-    # Plot
-    plt.figure(figsize=(6, 3))
-    plt.plot(times, vals, linewidth=1.5)
-    plt.title(f"{symbol.replace('-', ' ').title()} price (last {days}d)")
-    plt.xlabel("Date")
-    plt.ylabel("Price (USD)")
-    plt.tight_layout()
+        times = [datetime.fromtimestamp(p[0] / 1000) for p in prices]
+        vals  = [p[1] for p in prices]
 
-    # Save to a temporary file
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-    plt.savefig(tmp_file.name)
-    plt.close()
-    return tmp_file.name
+        plt.figure(figsize=(6, 3))
+        plt.plot(times, vals, linewidth=1.5)
+        plt.title(f"{symbol.replace('-', ' ').title()} price (last {days}d)")
+        plt.xlabel("Date")
+        plt.ylabel("Price (USD)")
+        plt.tight_layout()
+
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+        plt.savefig(tmp_file.name)
+        plt.close()
+        return tmp_file.name
+    except Exception:
+        traceback.print_exc()
+        return None
 
 def plot_stock_history(ticker: str, period: str) -> str:
-    """
-    Fetch historical price data for a stock from yfinance and plot.
-    `period` can be '1d', '7d', '30d', etc. Returns file path to PNG.
-    """
-    hist = yf.Ticker(ticker.upper()).history(period=period, interval="1h")
-    if hist.empty:
+    if plt is None:
         return None
 
-    times = hist.index.to_pydatetime()
-    vals = hist["Close"].tolist()
+    try:
+        hist = yf.Ticker(ticker.upper()).history(period=period, interval="1h")
+        if hist.empty:
+            return None
 
-    plt.figure(figsize=(6, 3))
-    plt.plot(times, vals, linewidth=1.5)
-    plt.title(f"{ticker.upper()} price (last {period})")
-    plt.xlabel("Date")
-    plt.ylabel("Price (USD)")
-    plt.tight_layout()
+        times = hist.index.to_pydatetime()
+        vals  = hist["Close"].tolist()
 
-    tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
-    plt.savefig(tmp_file.name)
-    plt.close()
-    return tmp_file.name
+        plt.figure(figsize=(6, 3))
+        plt.plot(times, vals, linewidth=1.5)
+        plt.title(f"{ticker.upper()} price (last {period})")
+        plt.xlabel("Date")
+        plt.ylabel("Price (USD)")
+        plt.tight_layout()
+
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+        plt.savefig(tmp_file.name)
+        plt.close()
+        return tmp_file.name
+    except Exception:
+        traceback.print_exc()
+        return None
 
 # ── TELEGRAM API ────────────────────────────────────────────────────────────────
 def get_updates(offset=None, timeout=30):
@@ -165,6 +183,7 @@ def main():
             msg    = upd.get("message", {})
             text   = msg.get("text", "").strip()
             chat_id = msg.get("chat", {}).get("id")
+
             if not chat_id or not text:
                 continue
 
@@ -181,54 +200,59 @@ def main():
                 )
 
             elif cmd == "/crypto":
-                send_message(chat_id, get_crypto_prices())
+                try:
+                    send_message(chat_id, get_crypto_prices())
+                except Exception:
+                    traceback.print_exc()
+                    send_message(chat_id, "⚠️ Error retrieving crypto prices.")
 
             elif cmd == "/stocks":
-                send_message(chat_id, get_stock_prices())
+                try:
+                    send_message(chat_id, get_stock_prices())
+                except Exception:
+                    traceback.print_exc()
+                    send_message(chat_id, "⚠️ Error retrieving stock prices.")
 
             elif cmd == "/chart":
-                # Expecting: /chart <symbol> <period>
                 if len(parts) != 3:
-                    send_message(chat_id, "Usage: `/chart <symbol> <period>`\n"
-                                          "e.g. `/chart bitcoin 7d` or `/chart AAPL 1d`")
+                    send_message(chat_id, 
+                        "Usage: `/chart <symbol> <period>`\n"
+                        "e.g. `/chart bitcoin 7d` or `/chart AAPL 1d`"
+                    )
                     continue
 
                 symbol = parts[1].lower()
                 period = parts[2].lower()
 
-                # Determine if crypto or stock
+                # Crypto vs. Stock
                 if symbol in CRYPTO_IDS:
-                    # Period should end with 'd' (days) or 'h' (hours)
                     if period.endswith("d") and period[:-1].isdigit():
                         days = int(period[:-1])
                         path = plot_crypto_history(symbol, days)
                         if path:
                             send_photo(chat_id, path, caption=f"📈 {symbol.replace('-', ' ').title()} - Last {days} days")
                         else:
-                            send_message(chat_id, f"Could not fetch historical data for {symbol}.")
+                            send_message(chat_id, f"⚠️ Could not fetch historical data for {symbol}.")
                     else:
                         send_message(chat_id, "For crypto, period must be in days, e.g. `7d`, `30d`.")
+
                 elif symbol.upper() in STOCK_TICKERS:
-                    # Period can be '1d', '7d', '30d', '1mo', etc.
-                    # yfinance supports '1d', '5d', '1mo', '3mo', '6mo', '1y', etc.
-                    # If user says '7d', translate to '7d'
+                    # yfinance accepts '1d', '5d', '1mo', '3mo', '6mo', '1y'
                     yf_period = period
-                    # For '7d', '30d', etc., yfinance uses '7d' or '30d'
                     if period.endswith("d") and period[:-1].isdigit():
                         yf_period = period
-                    elif period in ["1d", "5d", "1mo", "3mo", "6mo", "1y"]:
-                        yf_period = period
-                    else:
-                        send_message(chat_id, "Invalid period for stock. Use `1d`, `5d`, `1mo`, `3mo`, etc.")
+                    elif period not in ["1d", "5d", "1mo", "3mo", "6mo", "1y"]:
+                        send_message(chat_id, "Invalid period for stock. Use `1d`, `5d`, `1mo`, etc.")
                         continue
 
                     path = plot_stock_history(symbol.upper(), yf_period)
                     if path:
                         send_photo(chat_id, path, caption=f"📈 {symbol.upper()} - Last {yf_period}")
                     else:
-                        send_message(chat_id, f"Could not fetch historical data for {symbol.upper()}.")
+                        send_message(chat_id, f"⚠️ Could not fetch historical data for {symbol.upper()}.")
+
                 else:
-                    send_message(chat_id, "Symbol not recognized. Use a valid crypto ID or stock ticker.")
+                    send_message(chat_id, "⚠️ Symbol not recognized. Use a valid crypto ID or stock ticker.")
 
         time.sleep(1)  # avoid hammering Telegram
 
