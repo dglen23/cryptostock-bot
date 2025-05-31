@@ -23,8 +23,8 @@ if not TOKEN:
     raise RuntimeError("Missing TELEGRAM_TOKEN environment variable")
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
 
-# Environment variables for NewsAPI and Twitter API (v2)
-NEWS_API_KEY        = os.getenv("NEWS_API_KEY")
+# API keys for NewsAPI.org and Twitter API v2 (set these in Railway or your env)
+NEWS_API_KEY         = os.getenv("NEWS_API_KEY")
 TWITTER_BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN")
 
 CRYPTO_IDS    = [
@@ -123,19 +123,31 @@ def get_tweets(symbol: str) -> str:
     if not TWITTER_BEARER_TOKEN:
         return "⚠️ TWITTER_BEARER_TOKEN not set in environment."
     try:
+        # Build a more flexible query: symbol OR #symbol OR $SYMBOL
+        query = f"{symbol} OR #{symbol} OR ${symbol.upper()}"
         url = "https://api.twitter.com/2/tweets/search/recent"
         headers = {"Authorization": f"Bearer {TWITTER_BEARER_TOKEN}"}
         params = {
-            "query": symbol,
+            "query": query,
             "max_results": 3,
             "tweet.fields": "text,author_id,created_at"
         }
         resp = requests.get(url, headers=headers, params=params)
         data = resp.json()
-        print("Twitter response for", symbol, "→", data)    # <— add this line
+        # For debugging, uncomment next line and watch Railway logs:
+        # print("Twitter response for", symbol, "→", data)
         tweets = data.get("data", [])
-        ...
-
+        if not tweets:
+            return f"🐦 No recent tweets found for *{symbol.upper()}*."
+        lines = []
+        for t in tweets:
+            txt = t.get("text", "").replace("\n", " ")
+            created = t.get("created_at", "")
+            lines.append(f"• {txt} _(at {created})_")
+        return f"🐦 *Tweets for {symbol.upper()}*\n" + "\n".join(lines)
+    except Exception:
+        traceback.print_exc()
+        return f"⚠️ Error fetching tweets for {symbol.upper()}."
 
 # ── CHART GENERATORS ────────────────────────────────────────────────────────────
 def plot_crypto_history(symbol: str, days: int) -> str:
@@ -232,7 +244,7 @@ def main():
                     "Use `/crypto` to get all crypto prices.\n"
                     "Use `/stocks` to get all stock prices.\n"
                     "Use `/chart <symbol> <period>` for a price chart:\n"
-                    "`/chart bitcoin 7d` or `/chart AAPL 1d`.\n"
+                    "   `/chart bitcoin 7d` or `/chart AAPL 1d`.\n"
                     "Use `/news <symbol>` for latest headlines.\n"
                     "Use `/tweet <symbol>` for recent tweets."
                 )
@@ -260,6 +272,7 @@ def main():
                     continue
                 symbol = parts[1].lower()
                 period = parts[2].lower()
+
                 if symbol in CRYPTO_IDS:
                     if period.endswith("d") and period[:-1].isdigit():
                         days = int(period[:-1])
@@ -270,6 +283,7 @@ def main():
                             send_message(chat_id, f"⚠️ Could not fetch historical data for {symbol}.")
                     else:
                         send_message(chat_id, "For crypto, period must be in days (e.g. `7d`, `30d`).")
+
                 elif symbol.upper() in STOCK_TICKERS:
                     yf_period = period
                     if period.endswith("d") and period[:-1].isdigit():
