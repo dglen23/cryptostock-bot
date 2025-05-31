@@ -130,19 +130,12 @@ def get_tweets(symbol: str) -> str:
             "max_results": 3,
             "tweet.fields": "text,author_id,created_at"
         }
-        resp = requests.get(url, headers=headers, params=params).json()
-        tweets = resp.get("data", [])
-        if not tweets:
-            return f"🐦 No recent tweets found for *{symbol.upper()}*."
-        lines = []
-        for t in tweets:
-            txt = t.get("text", "").replace("\n", " ")
-            created = t.get("created_at", "")
-            lines.append(f"• {txt} _(at {created})_")
-        return f"🐦 *Tweets for {symbol.upper()}*\n" + "\n".join(lines)
-    except Exception:
-        traceback.print_exc()
-        return f"⚠️ Error fetching tweets for {symbol.upper()}."
+        resp = requests.get(url, headers=headers, params=params)
+        data = resp.json()
+        print("Twitter response for", symbol, "→", data)    # <— add this line
+        tweets = data.get("data", [])
+        ...
+
 
 # ── CHART GENERATORS ────────────────────────────────────────────────────────────
 def plot_crypto_history(symbol: str, days: int) -> str:
