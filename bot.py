@@ -201,17 +201,19 @@ def send_webapp_button(chat_id: int):
                     }
                 }
             ]
-        ],
-        "resize_keyboard": True,
-        "one_time_keyboard": True
+        ]
     }
-    
-    requests.post(f"{BASE_URL}/sendMessage", data={
+
+    payload = {
         "chat_id": chat_id,
-        "text": "🌐 *Launch Web App*\n\nClick the button below to open the GBCN Bot web interface!",
-        "parse_mode": "Markdown",
-        "reply_markup": json.dumps(keyboard)
-    })
+        "text": "Click the button below to open the Gumball Crypto News app:",
+        "reply_markup": keyboard
+    }
+
+    requests.post(
+        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+        json=payload
+    )
 
 # ── MAIN LOOP ──────────────────────────────────────────────────────────────────
 def main():
