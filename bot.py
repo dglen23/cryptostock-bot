@@ -197,7 +197,7 @@ def send_webapp_button(chat_id: int):
                 {
                     "text": "🚀 Open App",
                     "web_app": {
-                        "url": "https://gbcn-bot-frontend.railway.app"
+                        "url": "https://frontend-production-db33.up.railway.app"
                     }
                 }
             ]
