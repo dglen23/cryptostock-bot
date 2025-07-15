@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shiba Inu (SHIB) - GBCN Bot</title>
+    <link rel="stylesheet" href="../style.css">
+    <script src="../script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Shiba Inu (SHIB)</h1>
+        </header>
+        
+        <main>
+            <div class="crypto-actions">
+                <button class="action-btn btn-price" onclick="sendTelegramCommand('/crypto')">
+                    <span class="btn-icon">📊</span>
+                    <span class="btn-text">Get Price</span>
+                </button>
+                
+                <button class="action-btn btn-chart" onclick="sendTelegramCommand('/chart shiba-inu 7d')">
+                    <span class="btn-icon">📈</span>
+                    <span class="btn-text">View Chart</span>
+                </button>
+                
+                <button class="action-btn btn-news" onclick="sendTelegramCommand('/news shiba-inu')">
+                    <span class="btn-icon">📰</span>
+                    <span class="btn-text">News</span>
+                </button>
+            </div>
+        </main>
+        
+        <footer>
+            <a href="../crypto.html" class="back-link">← Back to Crypto List</a>
+            <p>Powered by Telegram Bot API</p>
+        </footer>
+    </div>
+</body>
+</html> 

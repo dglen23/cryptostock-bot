@@ -189,6 +189,30 @@ def send_photo(chat_id: int, photo_path: str, caption: str = None):
             data["parse_mode"] = "Markdown"
         requests.post(f"{BASE_URL}/sendPhoto", data=data, files=files)
 
+def send_webapp_button(chat_id: int):
+    """Send a custom keyboard with a web app button to launch the frontend."""
+    keyboard = {
+        "inline_keyboard": [
+            [
+                {
+                    "text": "🚀 Open App",
+                    "web_app": {
+                        "url": "https://gbcn-bot-frontend.railway.app"
+                    }
+                }
+            ]
+        ],
+        "resize_keyboard": True,
+        "one_time_keyboard": True
+    }
+    
+    requests.post(f"{BASE_URL}/sendMessage", data={
+        "chat_id": chat_id,
+        "text": "🌐 *Launch Web App*\n\nClick the button below to open the GBCN Bot web interface!",
+        "parse_mode": "Markdown",
+        "reply_markup": json.dumps(keyboard)
+    })
+
 # ── MAIN LOOP ──────────────────────────────────────────────────────────────────
 def main():
     offset = None
@@ -216,22 +240,24 @@ def main():
                     "   `/chart bitcoin 7d` or `/chart AAPL 1d`.\n"
                     "Use `/news <symbol>` for latest headlines."
                 )
+                # Send web app button after welcome message
+                send_webapp_button(chat_id)
 
-            elif cmd == "/crypto":
+            elif cmd in ["/crypto", "/cryptocurrency", "/coins", "/crypto_prices"]:
                 try:
                     send_message(chat_id, get_crypto_prices())
                 except Exception:
                     traceback.print_exc()
                     send_message(chat_id, "⚠️ Error retrieving crypto prices.")
 
-            elif cmd == "/stocks":
+            elif cmd in ["/stocks", "/equities", "/shares", "/stock_prices"]:
                 try:
                     send_message(chat_id, get_stock_prices())
                 except Exception:
                     traceback.print_exc()
                     send_message(chat_id, "⚠️ Error retrieving stock prices.")
 
-            elif cmd == "/chart":
+            elif cmd in ["/chart", "/graph", "/price_chart", "/chart_price"]:
                 if len(parts) != 3:
                     send_message(chat_id,
                         "Usage: `/chart <symbol> <period>`\n"
@@ -267,7 +293,7 @@ def main():
                 else:
                     send_message(chat_id, "⚠️ Symbol not recognized. Use a valid crypto ID or stock ticker.")
 
-            elif cmd == "/news":
+            elif cmd in ["/news", "/headlines", "/latest_news", "/news_articles"]:
                 if len(parts) != 2:
                     send_message(chat_id, "Usage: `/news <symbol>`\n(e.g. `/news bitcoin` or `/news AAPL`)")
                     continue
