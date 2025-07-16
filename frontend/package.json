@@ -2,12 +2,12 @@
   "name": "cryptostock-frontend",
   "version": "1.0.0",
   "description": "Frontend for Gumball Crypto News",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "serve -s . -l $PORT",
+    "dev": "serve -s . -l 8080",
     "build": "echo 'No build step needed'"
   },
   "dependencies": {
-    "express": "^4.18.2"
+    "serve": "^14.2.4"
   }
-} 
+}

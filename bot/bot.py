@@ -48,58 +48,171 @@ def format_price(price: float) -> str:
 
 def get_crypto_price_single(symbol: str) -> str:
     try:
-        url  = "https://api.coingecko.com/api/v3/simple/price"
-        data = requests.get(url, params={"ids": symbol, "vs_currencies": "usd"}).json()
-        price = data.get(symbol, {}).get("usd")
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        response = requests.get(url, params={"ids": symbol, "vs_currencies": "usd"}, timeout=10)
+        
+        # Check if the request was successful
+        if response.status_code != 200:
+            return f"{symbol.replace('-', ' ').title()}: API Error ({response.status_code})"
+        
+        data = response.json()
+        
+        # Check if the response contains the expected data structure
+        if not isinstance(data, dict):
+            return f"{symbol.replace('-', ' ').title()}: Invalid API response"
+        
+        # Check if the symbol exists in the response
+        if symbol not in data:
+            return f"{symbol.replace('-', ' ').title()}: Symbol not found"
+        
+        price = data[symbol].get("usd")
+        
+        # Check if price is None, 0, or negative
         if price is None:
-            return f"{symbol.title()}: N/A"
+            return f"{symbol.replace('-', ' ').title()}: Price unavailable"
+        elif price <= 0:
+            return f"{symbol.replace('-', ' ').title()}: Invalid price data"
+        
         return f"{symbol.replace('-', ' ').title()}: {format_price(price)}"
-    except Exception:
+        
+    except requests.exceptions.Timeout:
+        return f"{symbol.replace('-', ' ').title()}: Request timeout"
+    except requests.exceptions.ConnectionError:
+        return f"{symbol.replace('-', ' ').title()}: Connection error"
+    except requests.exceptions.RequestException as e:
+        return f"{symbol.replace('-', ' ').title()}: Network error"
+    except (ValueError, KeyError, TypeError) as e:
+        return f"{symbol.replace('-', ' ').title()}: Data parsing error"
+    except Exception as e:
         traceback.print_exc()
-        return f"{symbol.title()}: Error fetching price"
+        return f"{symbol.replace('-', ' ').title()}: Unexpected error"
 
 def get_stock_price_single(ticker: str) -> str:
     try:
-        info  = yf.Ticker(ticker.upper()).info
+        ticker_obj = yf.Ticker(ticker.upper())
+        info = ticker_obj.info
+        
+        # Check if we got valid info
+        if not info or not isinstance(info, dict):
+            return f"{ticker.upper()}: Invalid ticker data"
+        
         price = info.get("regularMarketPrice")
+        
+        # Check if price is None, 0, or negative
         if price is None:
-            return f"{ticker.upper()}: N/A"
+            return f"{ticker.upper()}: Price unavailable"
+        elif price <= 0:
+            return f"{ticker.upper()}: Invalid price data"
+        
         return f"{ticker.upper()}: ${price:,.2f}"
-    except Exception:
+        
+    except Exception as e:
         traceback.print_exc()
         return f"{ticker.upper()}: Error fetching price"
 
 def get_crypto_prices() -> str:
     try:
-        url  = "https://api.coingecko.com/api/v3/simple/price"
-        data = requests.get(url, params={"ids": ",".join(CRYPTO_IDS), "vs_currencies": "usd"}).json()
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        response = requests.get(url, params={"ids": ",".join(CRYPTO_IDS), "vs_currencies": "usd"}, timeout=15)
+        
+        # Check if the request was successful
+        if response.status_code != 200:
+            return f"⚠️ API Error ({response.status_code}): Unable to fetch crypto prices"
+        
+        data = response.json()
+        
+        # Check if the response contains the expected data structure
+        if not isinstance(data, dict):
+            return "⚠️ Invalid API response: Unable to parse crypto price data"
+        
         lines = []
+        successful_prices = 0
+        total_cryptos = len(CRYPTO_IDS)
+        
         for cid in CRYPTO_IDS:
-            name  = cid.replace("-", " ").title()
-            price = data.get(cid, {}).get("usd")
+            name = cid.replace("-", " ").title()
+            
+            # Check if the crypto exists in the response
+            if cid not in data:
+                lines.append(f"{name}: Symbol not found")
+                continue
+            
+            price = data[cid].get("usd")
+            
+            # Check if price is None, 0, or negative
             if price is None:
-                lines.append(f"{name}: N/A")
+                lines.append(f"{name}: Price unavailable")
+            elif price <= 0:
+                lines.append(f"{name}: Invalid price data")
             else:
                 lines.append(f"{name}: {format_price(price)}")
-        return "📊 *Crypto Prices*\n" + "\n".join(lines)
-    except Exception:
+                successful_prices += 1
+        
+        # Add summary if some prices failed
+        summary = ""
+        if successful_prices < total_cryptos:
+            failed_count = total_cryptos - successful_prices
+            summary = f"\n\n📊 *Summary*: {successful_prices}/{total_cryptos} prices retrieved successfully"
+            if failed_count > 0:
+                summary += f" ({failed_count} failed)"
+        
+        return "📊 *Crypto Prices*\n" + "\n".join(lines) + summary
+        
+    except requests.exceptions.Timeout:
+        return "⚠️ Request timeout: API took too long to respond"
+    except requests.exceptions.ConnectionError:
+        return "⚠️ Connection error: Unable to reach the API server"
+    except requests.exceptions.RequestException as e:
+        return f"⚠️ Network error: {str(e)}"
+    except (ValueError, KeyError, TypeError) as e:
+        return f"⚠️ Data parsing error: {str(e)}"
+    except Exception as e:
         traceback.print_exc()
-        return "⚠️ Error fetching all crypto prices."
+        return f"⚠️ Unexpected error: {str(e)}"
 
 def get_stock_prices() -> str:
     try:
         lines = []
+        successful_prices = 0
+        total_stocks = len(STOCK_TICKERS)
+        
         for t in STOCK_TICKERS:
-            info  = yf.Ticker(t).info
-            price = info.get("regularMarketPrice")
-            if price is None:
-                lines.append(f"{t}: N/A")
-            else:
-                lines.append(f"{t}: ${price:,.2f}")
-        return "📈 *Top Stock Prices*\n" + "\n".join(lines)
-    except Exception:
+            try:
+                ticker_obj = yf.Ticker(t)
+                info = ticker_obj.info
+                
+                # Check if we got valid info
+                if not info or not isinstance(info, dict):
+                    lines.append(f"{t}: Invalid ticker data")
+                    continue
+                
+                price = info.get("regularMarketPrice")
+                
+                # Check if price is None, 0, or negative
+                if price is None:
+                    lines.append(f"{t}: Price unavailable")
+                elif price <= 0:
+                    lines.append(f"{t}: Invalid price data")
+                else:
+                    lines.append(f"{t}: ${price:,.2f}")
+                    successful_prices += 1
+                    
+            except Exception as e:
+                lines.append(f"{t}: Error fetching price")
+        
+        # Add summary if some prices failed
+        summary = ""
+        if successful_prices < total_stocks:
+            failed_count = total_stocks - successful_prices
+            summary = f"\n\n📈 *Summary*: {successful_prices}/{total_stocks} prices retrieved successfully"
+            if failed_count > 0:
+                summary += f" ({failed_count} failed)"
+        
+        return "📈 *Top Stock Prices*\n" + "\n".join(lines) + summary
+        
+    except Exception as e:
         traceback.print_exc()
-        return "⚠️ Error fetching all stock prices."
+        return f"⚠️ Error fetching all stock prices: {str(e)}"
 
 # ── NEWS FUNCTIONS ──────────────────────────────────────────────────────────────
 def get_news(symbol: str) -> str:
@@ -228,7 +341,7 @@ async def start_command(message: types.Message):
     keyboard = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
             text="🚀 Launch Web App",
-            web_app=WebAppInfo(url="https://frontend-production-db33.up.railway.app")
+            callback_data="launch_webapp"
         )
     )
     await message.answer(
@@ -242,6 +355,119 @@ async def start_command(message: types.Message):
         parse_mode="Markdown",
         reply_markup=keyboard
     )
+
+@dp.callback_query_handler(lambda c: c.data == "launch_webapp")
+async def launch_webapp_callback(callback_query: types.CallbackQuery):
+    """Handle WebApp launch button callback."""
+    webapp_url = "https://frontend-production-db33.up.railway.app"
+    await callback_query.answer("Opening Web App...")
+    
+    # Send the WebApp URL as a message
+    await callback_query.message.answer(
+        f"🌐 *Web App Link*\n\nClick the link below to open the Gumball Crypto News app:\n\n{webapp_url}",
+        parse_mode="Markdown"
+    )
+
+@dp.callback_query_handler(lambda c: c.data == "crypto_prices")
+async def crypto_prices_callback(callback_query: types.CallbackQuery):
+    """Handle crypto prices button callback."""
+    await callback_query.answer("Fetching crypto prices...")
+    try:
+        await callback_query.message.answer(get_crypto_prices(), parse_mode="Markdown")
+    except Exception:
+        traceback.print_exc()
+        await callback_query.message.answer("⚠️ Error retrieving crypto prices.")
+
+@dp.callback_query_handler(lambda c: c.data == "stock_prices")
+async def stock_prices_callback(callback_query: types.CallbackQuery):
+    """Handle stock prices button callback."""
+    await callback_query.answer("Fetching stock prices...")
+    try:
+        await callback_query.message.answer(get_stock_prices(), parse_mode="Markdown")
+    except Exception:
+        traceback.print_exc()
+        await callback_query.message.answer("⚠️ Error retrieving stock prices.")
+
+@dp.callback_query_handler(lambda c: c.data == "get_news")
+async def get_news_callback(callback_query: types.CallbackQuery):
+    """Handle get news button callback."""
+    await callback_query.answer("Fetching latest news...")
+    try:
+        # For general news, we can fetch news for a popular crypto or stock
+        await callback_query.message.answer(
+            "📰 *Latest Crypto & Stock News*\n\n"
+            "Use `/news <symbol>` to get specific news.\n"
+            "Examples:\n"
+            "• `/news bitcoin` - Bitcoin news\n"
+            "• `/news AAPL` - Apple stock news\n"
+            "• `/news ethereum` - Ethereum news",
+            parse_mode="Markdown"
+        )
+    except Exception:
+        traceback.print_exc()
+        await callback_query.message.answer("⚠️ Error retrieving news.")
+
+@dp.callback_query_handler(lambda c: c.data.startswith("chart_"))
+async def chart_callback(callback_query: types.CallbackQuery):
+    """Handle chart button callbacks."""
+    chart_data = callback_query.data[6:]  # Remove "chart_" prefix
+    await callback_query.answer(f"Generating chart for {chart_data}...")
+    
+    try:
+        parts = chart_data.split("_")
+        if len(parts) >= 2:
+            symbol = parts[0].lower()
+            period = parts[1].lower()
+            
+            if symbol in CRYPTO_IDS:
+                if period.endswith("d") and period[:-1].isdigit():
+                    days = int(period[:-1])
+                    path = plot_crypto_history(symbol, days)
+                    if path:
+                        with open(path, 'rb') as photo:
+                            await callback_query.message.answer_photo(
+                                photo,
+                                caption=f"📈 {symbol.replace('-', ' ').title()} - Last {days} days"
+                            )
+                    else:
+                        await callback_query.message.answer(f"⚠️ Could not fetch historical data for {symbol}.")
+                else:
+                    await callback_query.message.answer("For crypto, period must be in days (e.g. `7d`, `30d`).")
+            elif symbol.upper() in STOCK_TICKERS:
+                yf_period = period
+                if period.endswith("d") and period[:-1].isdigit():
+                    yf_period = period
+                elif period not in ["1d", "5d", "1mo", "3mo", "6mo", "1y"]:
+                    await callback_query.message.answer("Invalid period for stock. Use `1d`, `5d`, `1mo`, etc.")
+                    return
+                path = plot_stock_history(symbol.upper(), yf_period)
+                if path:
+                    with open(path, 'rb') as photo:
+                        await callback_query.message.answer_photo(
+                            photo,
+                            caption=f"📈 {symbol.upper()} - Last {yf_period}"
+                        )
+                else:
+                    await callback_query.message.answer(f"⚠️ Could not fetch historical data for {symbol.upper()}.")
+            else:
+                await callback_query.message.answer("⚠️ Symbol not recognized. Use a valid crypto ID or stock ticker.")
+        else:
+            await callback_query.message.answer("Invalid chart format. Expected: chart_symbol_period")
+    except Exception as e:
+        traceback.print_exc()
+        await callback_query.message.answer(f"⚠️ Error generating chart: {str(e)}")
+
+@dp.callback_query_handler(lambda c: c.data.startswith("news_"))
+async def news_callback(callback_query: types.CallbackQuery):
+    """Handle news button callbacks."""
+    symbol = callback_query.data[5:]  # Remove "news_" prefix
+    await callback_query.answer(f"Fetching news for {symbol.upper()}...")
+    
+    try:
+        await callback_query.message.answer(get_news(symbol), parse_mode="Markdown")
+    except Exception as e:
+        traceback.print_exc()
+        await callback_query.message.answer(f"⚠️ Error fetching news for {symbol.upper()}: {str(e)}")
 
 @dp.message_handler(content_types=['web_app_data'])
 async def handle_webapp_data(message: types.Message):
