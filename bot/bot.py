@@ -7,6 +7,9 @@ import tempfile
 import traceback
 import requests
 import yfinance as yf
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.utils import executor
 
 # Only import matplotlib if available; otherwise disable charting
 try:
@@ -21,7 +24,10 @@ from datetime import datetime
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 if not TOKEN:
     raise RuntimeError("Missing TELEGRAM_TOKEN environment variable")
-BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
+
+# Initialize aiogram bot and dispatcher
+bot = Bot(token=TOKEN)
+dp = Dispatcher(bot)
 
 # NewsAPI.org key (set this in Railway or your environment)
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
@@ -215,94 +221,178 @@ def send_webapp_button(chat_id: int):
         json=payload
     )
 
-# ── MAIN LOOP ──────────────────────────────────────────────────────────────────
-def main():
-    offset = None
-    print("🟢 Bot started, polling for updates...")
-    while True:
-        updates = get_updates(offset)
-        for upd in updates:
-            offset = upd["update_id"] + 1
-            msg    = upd.get("message", {})
-            text   = msg.get("text", "").strip()
-            chat_id = msg.get("chat", {}).get("id")
+# ── AIOGRAM HANDLERS ────────────────────────────────────────────────────────────
+@dp.message_handler(commands=["start"])
+async def start_command(message: types.Message):
+    """Handle /start command with WebApp button."""
+    keyboard = InlineKeyboardMarkup().add(
+        InlineKeyboardButton(
+            text="🚀 Launch Web App",
+            web_app=WebAppInfo(url="https://frontend-production-db33.up.railway.app")
+        )
+    )
+    await message.answer(
+        "👋 *CryptoStock Bot*\n\n"
+        "Use `/crypto` to get all crypto prices.\n"
+        "Use `/stocks` to get all stock prices.\n"
+        "Use `/chart <symbol> <period>` for a price chart:\n"
+        "   `/chart bitcoin 7d` or `/chart AAPL 1d`.\n"
+        "Use `/news <symbol>` for latest headlines.\n\n"
+        "🌐 Or click the button below to open the web interface:",
+        parse_mode="Markdown",
+        reply_markup=keyboard
+    )
 
-            if not chat_id or not text:
-                continue
-
-            parts = text.split()
-            cmd = parts[0].lower()
-
-            if cmd == "/start":
-                send_message(chat_id,
-                    "👋 *CryptoStock Bot*\n\n"
-                    "Use `/crypto` to get all crypto prices.\n"
-                    "Use `/stocks` to get all stock prices.\n"
-                    "Use `/chart <symbol> <period>` for a price chart:\n"
-                    "   `/chart bitcoin 7d` or `/chart AAPL 1d`.\n"
-                    "Use `/news <symbol>` for latest headlines."
-                )
-                # Send web app button after welcome message
-                send_webapp_button(chat_id)
-
-            elif cmd in ["/crypto", "/cryptocurrency", "/coins", "/crypto_prices"]:
-                try:
-                    send_message(chat_id, get_crypto_prices())
-                except Exception:
-                    traceback.print_exc()
-                    send_message(chat_id, "⚠️ Error retrieving crypto prices.")
-
-            elif cmd in ["/stocks", "/equities", "/shares", "/stock_prices"]:
-                try:
-                    send_message(chat_id, get_stock_prices())
-                except Exception:
-                    traceback.print_exc()
-                    send_message(chat_id, "⚠️ Error retrieving stock prices.")
-
-            elif cmd in ["/chart", "/graph", "/price_chart", "/chart_price"]:
-                if len(parts) != 3:
-                    send_message(chat_id,
-                        "Usage: `/chart <symbol> <period>`\n"
-                        "e.g. `/chart bitcoin 7d` or `/chart AAPL 1d`"
-                    )
-                    continue
-                symbol = parts[1].lower()
-                period = parts[2].lower()
-
+@dp.message_handler(content_types=['web_app_data'])
+async def handle_webapp_data(message: types.Message):
+    """Handle data received from the Telegram Web App."""
+    try:
+        data = message.web_app_data.data
+        
+        if data == "crypto":
+            await message.answer("📊 Fetching crypto prices...")
+            await message.answer(get_crypto_prices(), parse_mode="Markdown")
+        elif data == "stocks":
+            await message.answer("📈 Fetching stock prices...")
+            await message.answer(get_stock_prices(), parse_mode="Markdown")
+        elif data.startswith("chart:"):
+            # Handle chart requests from WebApp
+            chart_data = data[6:]  # Remove "chart:" prefix
+            parts = chart_data.split()
+            if len(parts) >= 2:
+                symbol = parts[0].lower()
+                period = parts[1].lower()
+                
                 if symbol in CRYPTO_IDS:
                     if period.endswith("d") and period[:-1].isdigit():
                         days = int(period[:-1])
                         path = plot_crypto_history(symbol, days)
                         if path:
-                            send_photo(chat_id, path, caption=f"📈 {symbol.replace('-', ' ').title()} - Last {days} days")
+                            with open(path, 'rb') as photo:
+                                await message.answer_photo(
+                                    photo,
+                                    caption=f"📈 {symbol.replace('-', ' ').title()} - Last {days} days"
+                                )
                         else:
-                            send_message(chat_id, f"⚠️ Could not fetch historical data for {symbol}.")
+                            await message.answer(f"⚠️ Could not fetch historical data for {symbol}.")
                     else:
-                        send_message(chat_id, "For crypto, period must be in days (e.g. `7d`, `30d`).")
-
+                        await message.answer("For crypto, period must be in days (e.g. `7d`, `30d`).")
                 elif symbol.upper() in STOCK_TICKERS:
                     yf_period = period
                     if period.endswith("d") and period[:-1].isdigit():
                         yf_period = period
                     elif period not in ["1d", "5d", "1mo", "3mo", "6mo", "1y"]:
-                        send_message(chat_id, "Invalid period for stock. Use `1d`, `5d`, `1mo`, etc.")
-                        continue
+                        await message.answer("Invalid period for stock. Use `1d`, `5d`, `1mo`, etc.")
+                        return
                     path = plot_stock_history(symbol.upper(), yf_period)
                     if path:
-                        send_photo(chat_id, path, caption=f"📈 {symbol.upper()} - Last {yf_period}")
+                        with open(path, 'rb') as photo:
+                            await message.answer_photo(
+                                photo,
+                                caption=f"📈 {symbol.upper()} - Last {yf_period}"
+                            )
                     else:
-                        send_message(chat_id, f"⚠️ Could not fetch historical data for {symbol.upper()}.")
+                        await message.answer(f"⚠️ Could not fetch historical data for {symbol.upper()}.")
                 else:
-                    send_message(chat_id, "⚠️ Symbol not recognized. Use a valid crypto ID or stock ticker.")
+                    await message.answer("⚠️ Symbol not recognized. Use a valid crypto ID or stock ticker.")
+            else:
+                await message.answer("Invalid chart format. Expected: chart:symbol period")
+        elif data.startswith("news:"):
+            # Handle news requests from WebApp
+            symbol = data[5:]  # Remove "news:" prefix
+            await message.answer(f"📰 Fetching news for {symbol.upper()}...")
+            await message.answer(get_news(symbol), parse_mode="Markdown")
+        else:
+            await message.answer(f"❓ Unknown WebApp data: {data}")
+    except Exception as e:
+        traceback.print_exc()
+        await message.answer(f"⚠️ Error processing WebApp data: {str(e)}")
 
-            elif cmd in ["/news", "/headlines", "/latest_news", "/news_articles"]:
-                if len(parts) != 2:
-                    send_message(chat_id, "Usage: `/news <symbol>`\n(e.g. `/news bitcoin` or `/news AAPL`)")
-                    continue
-                symbol = parts[1].lower()
-                send_message(chat_id, get_news(symbol))
+@dp.message_handler(commands=["crypto", "cryptocurrency", "coins", "crypto_prices"])
+async def crypto_command(message: types.Message):
+    """Handle crypto price commands."""
+    try:
+        await message.answer(get_crypto_prices(), parse_mode="Markdown")
+    except Exception:
+        traceback.print_exc()
+        await message.answer("⚠️ Error retrieving crypto prices.")
 
-        time.sleep(1)  # avoid hammering Telegram
+@dp.message_handler(commands=["stocks", "equities", "shares", "stock_prices"])
+async def stocks_command(message: types.Message):
+    """Handle stock price commands."""
+    try:
+        await message.answer(get_stock_prices(), parse_mode="Markdown")
+    except Exception:
+        traceback.print_exc()
+        await message.answer("⚠️ Error retrieving stock prices.")
+
+@dp.message_handler(commands=["chart", "graph", "price_chart", "chart_price"])
+async def chart_command(message: types.Message):
+    """Handle chart commands."""
+    parts = message.text.split()
+    if len(parts) != 3:
+        await message.answer(
+            "Usage: `/chart <symbol> <period>`\n"
+            "e.g. `/chart bitcoin 7d` or `/chart AAPL 1d`",
+            parse_mode="Markdown"
+        )
+        return
+    
+    symbol = parts[1].lower()
+    period = parts[2].lower()
+
+    if symbol in CRYPTO_IDS:
+        if period.endswith("d") and period[:-1].isdigit():
+            days = int(period[:-1])
+            path = plot_crypto_history(symbol, days)
+            if path:
+                with open(path, 'rb') as photo:
+                    await message.answer_photo(
+                        photo,
+                        caption=f"📈 {symbol.replace('-', ' ').title()} - Last {days} days"
+                    )
+            else:
+                await message.answer(f"⚠️ Could not fetch historical data for {symbol}.")
+        else:
+            await message.answer("For crypto, period must be in days (e.g. `7d`, `30d`).")
+    elif symbol.upper() in STOCK_TICKERS:
+        yf_period = period
+        if period.endswith("d") and period[:-1].isdigit():
+            yf_period = period
+        elif period not in ["1d", "5d", "1mo", "3mo", "6mo", "1y"]:
+            await message.answer("Invalid period for stock. Use `1d`, `5d`, `1mo`, etc.")
+            return
+        path = plot_stock_history(symbol.upper(), yf_period)
+        if path:
+            with open(path, 'rb') as photo:
+                await message.answer_photo(
+                    photo,
+                    caption=f"📈 {symbol.upper()} - Last {yf_period}"
+                )
+        else:
+            await message.answer(f"⚠️ Could not fetch historical data for {symbol.upper()}.")
+    else:
+        await message.answer("⚠️ Symbol not recognized. Use a valid crypto ID or stock ticker.")
+
+@dp.message_handler(commands=["news", "headlines", "latest_news", "news_articles"])
+async def news_command(message: types.Message):
+    """Handle news commands."""
+    parts = message.text.split()
+    if len(parts) != 2:
+        await message.answer(
+            "Usage: `/news <symbol>`\n(e.g. `/news bitcoin` or `/news AAPL`)",
+            parse_mode="Markdown"
+        )
+        return
+    
+    symbol = parts[1].lower()
+    await message.answer(get_news(symbol), parse_mode="Markdown")
+
+# ── MAIN FUNCTION ────────────────────────────────────────────────────────────────
+async def main():
+    """Start the bot."""
+    print("🟢 Bot started with aiogram...")
+    await dp.start_polling()
 
 if __name__ == "__main__":
-    main()
+    executor.start_polling(dp, skip_updates=True)

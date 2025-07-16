@@ -1,3 +1,4 @@
 requests
 yfinance
 matplotlib
+aiogram==2.25.1

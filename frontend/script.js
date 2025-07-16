@@ -98,4 +98,47 @@ if (typeof module !== 'undefined' && module.exports) {
         getCryptoChart,
         getNews
     };
+}
+
+// Telegram Web App integration
+if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
+    // Initialize Telegram Web App
+    Telegram.WebApp.ready();
+    
+    // Add event listeners for frontend buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        // Crypto button event listener
+        const cryptoBtn = document.getElementById("cryptoBtn");
+        if (cryptoBtn) {
+            cryptoBtn.addEventListener("click", () => {
+                Telegram.WebApp.sendData("crypto");
+            });
+        }
+        
+        // Stock button event listener
+        const stockBtn = document.getElementById("stockBtn");
+        if (stockBtn) {
+            stockBtn.addEventListener("click", () => {
+                Telegram.WebApp.sendData("stocks");
+            });
+        }
+        
+        // Chart button event listeners
+        const chartButtons = document.querySelectorAll("[data-chart]");
+        chartButtons.forEach(button => {
+            button.addEventListener("click", () => {
+                const chartData = button.getAttribute("data-chart");
+                Telegram.WebApp.sendData(`chart:${chartData}`);
+            });
+        });
+        
+        // News button event listeners
+        const newsButtons = document.querySelectorAll("[data-news]");
+        newsButtons.forEach(button => {
+            button.addEventListener("click", () => {
+                const newsData = button.getAttribute("data-news");
+                Telegram.WebApp.sendData(`news:${newsData}`);
+            });
+        });
+    });
 } 
