@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Frontend for Gumball Crypto News",
   "scripts": {
-    "start": "serve -s . -l $PORT",
-    "dev": "serve -s . -l 8080",
+    "start": "npx serve -s . -l $PORT",
+    "dev": "npx serve -s . -l 8080",
     "build": "echo 'No build step needed'"
   },
   "dependencies": {
