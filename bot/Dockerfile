@@ -1,4 +1,6 @@
-# Use Python 3.11 instead of 3.12
+# Dockerfile
+
+# Use Python 3.11 slim image
 FROM python:3.11-slim
 
 # Install system dependencies needed to build some Python packages
@@ -11,15 +13,15 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Set the working directory inside the container
 WORKDIR /app
 
-# Install Python dependencies
+# Copy Python dependency file and install requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your code
+# Copy application source code
 COPY . .
 
-# Command to run your bot
+# Run the bot
 CMD ["python", "bot.py"]
