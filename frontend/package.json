@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "Frontend for Gumball Crypto News",
   "scripts": {
-    "start": "npx serve -s . -l $PORT",
-    "dev": "npx serve -s . -l 8080",
+    "start": "npx http-server . -p $PORT -a 0.0.0.0",
+    "dev": "npx http-server . -p 8080 -a 0.0.0.0",
     "build": "echo 'No build step needed'"
   },
   "dependencies": {
-    "serve": "^14.2.4"
+    "http-server": "^14.1.1"
   }
 }
