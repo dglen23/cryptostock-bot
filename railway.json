@@ -2,11 +2,15 @@
   "services": [
     {
       "name": "bot",
-      "rootDir": "bot"
+      "rootDir": "bot",
+      "startCommand": "python bot.py",
+      "buildCommand": "pip install --no-cache-dir -r requirements.txt"
     },
     {
       "name": "frontend",
-      "rootDir": "frontend"
+      "rootDir": "frontend",
+      "startCommand": "npm start",
+      "buildCommand": "npm install"
     }
   ]
 }
