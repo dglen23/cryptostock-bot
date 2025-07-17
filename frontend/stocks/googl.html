@@ -3,32 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google (GOOGL) - GBCN Bot</title>
+    <title>Alphabet Inc. (GOOGL) - GBCN Bot</title>
     <link rel="stylesheet" href="../style.css">
     <script src="../script.js"></script>
+    <script src="../chart.js"></script>
 </head>
-<body>
+<body data-symbol="GOOGL" data-type="stock">
     <div class="container">
         <header>
-            <h1>Google (GOOGL)</h1>
+            <h1>Alphabet Inc. (GOOGL)</h1>
         </header>
         
         <main>
-            <div class="crypto-actions">
-                <button class="action-btn btn-price" onclick="sendTelegramCommand('/stocks')">
-                    <span class="btn-icon">📊</span>
-                    <span class="btn-text">Get Price</span>
-                </button>
+            <!-- Current Price Display -->
+            <div class="price-display">
+                <div id="current-price">
+                    <span class="loading">Loading price...</span>
+                </div>
+            </div>
+            
+            <!-- Chart Container -->
+            <div class="chart-container">
+                <div class="chart-title">Price Chart</div>
+                <div id="chart-loading" style="display: none;">Loading chart...</div>
+                <canvas id="price-chart"></canvas>
                 
-                <button class="action-btn btn-chart" onclick="sendTelegramCommand('/chart GOOGL 7d')">
-                    <span class="btn-icon">📈</span>
-                    <span class="btn-text">View Chart</span>
-                </button>
-                
-                <button class="action-btn btn-news" onclick="sendTelegramCommand('/news GOOGL')">
-                    <span class="btn-icon">📰</span>
-                    <span class="btn-text">News</span>
-                </button>
+                <!-- Timeframe Buttons -->
+                <div class="timeframe-buttons">
+                    <button class="timeframe-btn" data-timeframe="1h">1h</button>
+                    <button class="timeframe-btn active" data-timeframe="1d">1d</button>
+                    <button class="timeframe-btn" data-timeframe="7d">7d</button>
+                    <button class="timeframe-btn" data-timeframe="30d">30d</button>
+                </div>
             </div>
         </main>
         
@@ -38,4 +44,4 @@
         </footer>
     </div>
 </body>
-</html> 
+</html>

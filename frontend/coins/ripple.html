@@ -6,29 +6,35 @@
     <title>Ripple (XRP) - GBCN Bot</title>
     <link rel="stylesheet" href="../style.css">
     <script src="../script.js"></script>
+    <script src="../chart.js"></script>
 </head>
-<body>
+<body data-symbol="ripple" data-type="crypto">
     <div class="container">
         <header>
             <h1>Ripple (XRP)</h1>
         </header>
         
         <main>
-            <div class="crypto-actions">
-                <button class="action-btn btn-price" onclick="sendTelegramCommand('/crypto')">
-                    <span class="btn-icon">📊</span>
-                    <span class="btn-text">Get Price</span>
-                </button>
+            <!-- Current Price Display -->
+            <div class="price-display">
+                <div id="current-price">
+                    <span class="loading">Loading price...</span>
+                </div>
+            </div>
+            
+            <!-- Chart Container -->
+            <div class="chart-container">
+                <div class="chart-title">Price Chart</div>
+                <div id="chart-loading" style="display: none;">Loading chart...</div>
+                <canvas id="price-chart"></canvas>
                 
-                <button class="action-btn btn-chart" onclick="sendTelegramCommand('/chart ripple 7d')">
-                    <span class="btn-icon">📈</span>
-                    <span class="btn-text">View Chart</span>
-                </button>
-                
-                <button class="action-btn btn-news" onclick="sendTelegramCommand('/news ripple')">
-                    <span class="btn-icon">📰</span>
-                    <span class="btn-text">News</span>
-                </button>
+                <!-- Timeframe Buttons -->
+                <div class="timeframe-buttons">
+                    <button class="timeframe-btn" data-timeframe="1h">1h</button>
+                    <button class="timeframe-btn active" data-timeframe="1d">1d</button>
+                    <button class="timeframe-btn" data-timeframe="7d">7d</button>
+                    <button class="timeframe-btn" data-timeframe="30d">30d</button>
+                </div>
             </div>
         </main>
         
@@ -38,4 +44,4 @@
         </footer>
     </div>
 </body>
-</html> 
+</html>
