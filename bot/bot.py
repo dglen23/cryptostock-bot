@@ -337,11 +337,11 @@ def send_webapp_button(chat_id: int):
 # ── AIOGRAM HANDLERS ────────────────────────────────────────────────────────────
 @dp.message_handler(commands=["start"])
 async def start_command(message: types.Message):
-    """Handle /start command with WebApp button."""
+    """Handle /start command with WebApp URL button."""
     keyboard = InlineKeyboardMarkup().add(
         InlineKeyboardButton(
             text="🚀 Launch Web App",
-            callback_data="launch_webapp"
+            url="https://frontend-production-db33.up.railway.app"
         )
     )
     await message.answer(
@@ -354,18 +354,6 @@ async def start_command(message: types.Message):
         "🌐 Or click the button below to open the web interface:",
         parse_mode="Markdown",
         reply_markup=keyboard
-    )
-
-@dp.callback_query_handler(lambda c: c.data == "launch_webapp")
-async def launch_webapp_callback(callback_query: types.CallbackQuery):
-    """Handle WebApp launch button callback."""
-    webapp_url = "https://frontend-production-db33.up.railway.app"
-    await callback_query.answer("Opening Web App...")
-    
-    # Send the WebApp URL as a message
-    await callback_query.message.answer(
-        f"🌐 *Web App Link*\n\nClick the link below to open the Gumball Crypto News app:\n\n{webapp_url}",
-        parse_mode="Markdown"
     )
 
 @dp.callback_query_handler(lambda c: c.data == "crypto_prices")
