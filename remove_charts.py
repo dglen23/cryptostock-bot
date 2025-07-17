@@ -1,59 +1,50 @@
 #!/usr/bin/env python3
 import os
+import re
 
 def remove_charts_from_page(file_path):
-    """Remove chart container and related elements from a page"""
-    
+    """Remove all chart-related elements from a page, leaving only the price display."""
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
-    
-    # Remove the chart.js script reference
+
+    # Remove chart.js script reference
     content = content.replace('<script src="../chart.js"></script>', '')
-    
-    # Remove the entire chart container section (from Chart Container comment to end of timeframe buttons)
-    import re
-    
-    # Pattern to match from Chart Container comment to the end of timeframe buttons
-    pattern = r'<!-- Chart Container -->.*?<!-- Timeframe Buttons -->.*?</div>\s*</div>\s*</div>'
-    
-    # Remove the chart container
-    new_content = re.sub(pattern, '', content, flags=re.DOTALL)
-    
+
+    # Remove chart container and everything inside it
+    content = re.sub(r'<!-- Chart Container -->.*?</div>\s*</main>', '</main>', content, flags=re.DOTALL)
+
+    # Remove any remaining timeframe buttons
+    content = re.sub(r'<div class="timeframe-buttons">.*?</div>', '', content, flags=re.DOTALL)
+    content = re.sub(r'<button class="timeframe-btn.*?</button>', '', content, flags=re.DOTALL)
+
+    # Remove any remaining chart titles
+    content = re.sub(r'<div class="chart-title">.*?</div>', '', content, flags=re.DOTALL)
+
+    # Remove any empty lines or extra whitespace left by removals
+    content = re.sub(r'\n\s*\n', '\n', content)
+
     with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(new_content)
-    
-    print(f"Updated {file_path}")
+        f.write(content)
+    print(f"Cleaned {file_path}")
 
 def main():
-    # Crypto pages to update
     crypto_pages = [
-        'bitcoin.html', 'ethereum.html', 'ripple.html', 'hedera-hashgraph.html', 
-        'stellar.html', 'quant-network.html', 'ondo.html', 'xdc-network.html', 
+        'bitcoin.html', 'ethereum.html', 'ripple.html', 'hedera-hashgraph.html',
+        'stellar.html', 'quant-network.html', 'ondo.html', 'xdc-network.html',
         'pepe.html', 'shiba-inu.html', 'solana.html', 'dogecoin.html'
     ]
-    
-    # Stock pages to update
     stock_pages = [
         'aapl.html', 'msft.html', 'nvda.html', 'amzn.html', 'googl.html'
     ]
-    
-    # Update crypto pages
     for filename in crypto_pages:
         file_path = f"frontend/coins/{filename}"
         if os.path.exists(file_path):
             remove_charts_from_page(file_path)
-        else:
-            print(f"Warning: {file_path} not found")
-    
-    # Update stock pages
     for filename in stock_pages:
         file_path = f"frontend/stocks/{filename}"
         if os.path.exists(file_path):
             remove_charts_from_page(file_path)
-        else:
-            print(f"Warning: {file_path} not found")
-    
-    print("\nAll charts removed from pages!")
+    print("\nAll chart evidence removed from pages!")
 
 if __name__ == "__main__":
     main() 

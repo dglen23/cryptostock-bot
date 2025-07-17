@@ -6,14 +6,12 @@
     <title>Solana (SOL) - GBCN Bot</title>
     <link rel="stylesheet" href="../style.css">
     <script src="../script.js"></script>
-    
 </head>
 <body data-symbol="solana" data-type="crypto">
     <div class="container">
         <header>
             <h1>Solana (SOL)</h1>
         </header>
-        
         <main>
             <!-- Current Price Display -->
             <div class="price-display">
@@ -21,25 +19,7 @@
                     <span class="loading">Loading price...</span>
                 </div>
             </div>
-            
-            <!-- Chart Container -->
-            <div class="chart-container">
-                <div class="chart-title">Price Chart</div>
-                <div id="chart-loading" style="display: none;">Loading chart...</div>
-                <div class="chart-wrapper">
-                    <canvas id="price-chart"></canvas>
-                </div>
-                
-                <!-- Timeframe Buttons -->
-                <div class="timeframe-buttons">
-                    <button class="timeframe-btn" data-timeframe="1h">1h</button>
-                    <button class="timeframe-btn active" data-timeframe="1d">1d</button>
-                    <button class="timeframe-btn" data-timeframe="7d">7d</button>
-                    <button class="timeframe-btn" data-timeframe="30d">30d</button>
-                </div>
-            </div>
-        </main>
-        
+            </main>
         <footer>
             <a href="../crypto.html" class="back-link">← Back to Crypto List</a>
             <p>Powered by Telegram Bot API</p>
