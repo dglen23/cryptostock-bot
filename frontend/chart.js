@@ -7,6 +7,27 @@ let currentSymbol = '';
 let currentType = '';
 
 /**
+ * Map common coin names to CoinGecko IDs
+ */
+function getCoinGeckoId(symbol) {
+    const coinMap = {
+        'bitcoin': 'bitcoin',
+        'ethereum': 'ethereum',
+        'ripple': 'ripple',
+        'hedera-hashgraph': 'hedera-hashgraph',
+        'stellar': 'stellar',
+        'quant-network': 'quant-network',
+        'ondo': 'ondo',
+        'xdc-network': 'xdc-network',
+        'pepe': 'pepe',
+        'shiba-inu': 'shiba-inu',
+        'solana': 'solana',
+        'dogecoin': 'dogecoin'
+    };
+    return coinMap[symbol] || symbol;
+}
+
+/**
  * Initialize the detail page with price and chart
  */
 async function initializeDetailPage(symbol, type) {
@@ -72,11 +93,12 @@ async function loadCurrentPrice() {
  * Fetch crypto price from CoinGecko API
  */
 async function fetchCryptoPrice(symbol) {
-    const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${symbol}&vs_currencies=usd`);
+    const coinId = getCoinGeckoId(symbol);
+    const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
     const data = await response.json();
     
-    if (data[symbol] && data[symbol].usd) {
-        const price = data[symbol].usd;
+    if (data[coinId] && data[coinId].usd) {
+        const price = data[coinId].usd;
         return formatPrice(price);
     }
     throw new Error('Price not available');
@@ -141,6 +163,7 @@ async function loadChart(timeframe) {
         canvas.style.display = 'none';
         const loadingDiv = document.getElementById('chart-loading');
         if (loadingDiv) {
+            loadingDiv.style.display = 'block';
             loadingDiv.innerHTML = '<span class="error">Chart unavailable</span>';
         }
     }
@@ -150,8 +173,9 @@ async function loadChart(timeframe) {
  * Fetch crypto chart data from CoinGecko
  */
 async function fetchCryptoChartData(symbol, timeframe) {
+    const coinId = getCoinGeckoId(symbol);
     const days = getDaysFromTimeframe(timeframe);
-    const response = await fetch(`https://api.coingecko.com/api/v3/coins/${symbol}/market_chart?vs_currency=usd&days=${days}`);
+    const response = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}`);
     const data = await response.json();
     
     return {
