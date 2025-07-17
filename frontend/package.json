@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Frontend for Gumball Crypto News",
   "scripts": {
-    "start": "http-server . -p $PORT -a 0.0.0.0",
+    "start": " --yes http-server . -p $PORT -a 0.0.0.0",
     "dev": "npx http-server . -p 8080 -a 0.0.0.0",
     "build": "echo 'No build step needed'"
   },
