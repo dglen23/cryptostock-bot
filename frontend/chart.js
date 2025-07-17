@@ -279,6 +279,7 @@ function renderChart(data, timeframe) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            aspectRatio: 2,
             plugins: {
                 legend: {
                     display: false

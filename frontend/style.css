@@ -367,6 +367,8 @@ footer {
     border-radius: 15px;
     box-shadow: 0 8px 25px rgba(0,0,0,0.15);
     backdrop-filter: blur(10px);
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .chart-title {
@@ -377,10 +379,18 @@ footer {
     margin-bottom: 1rem;
 }
 
-#price-chart {
+.chart-wrapper {
     width: 100%;
     height: 400px;
-    margin: 10px;
+    max-height: 400px;
+    position: relative;
+    overflow: hidden;
+}
+
+#price-chart {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 400px !important;
 }
 
 #chart-loading {
@@ -431,8 +441,12 @@ footer {
         font-size: 2.5rem;
     }
     
-    #price-chart {
+    .chart-wrapper {
         height: 300px;
+    }
+    
+    #price-chart {
+        height: 100% !important;
     }
     
     .timeframe-buttons {
@@ -450,8 +464,12 @@ footer {
         font-size: 2rem;
     }
     
-    #price-chart {
+    .chart-wrapper {
         height: 250px;
+    }
+    
+    #price-chart {
+        height: 100% !important;
     }
     
     .timeframe-buttons {
